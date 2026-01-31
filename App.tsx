@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppView, Language, TrainingConfig, Unit } from './types';
+import { AppView, Card, Language, TrainingConfig, Unit } from './types';
 import { INITIAL_UNITS } from './constants';
 import { Layout } from './components/Layout';
 import { MainMenu } from './components/MainMenu';
@@ -8,6 +8,8 @@ import { AddContent } from './components/AddContent';
 import { Stats } from './components/Stats';
 import { Unfinished } from './components/Unfinished';
 import { RefreshCw, CheckCircle, HardDrive } from 'lucide-react';
+import { simulateFileProcessing } from './utils/ocrEngine';
+import { mergeCards } from './utils/storage';
 
 const App: React.FC = () => {
   // Global State
@@ -16,6 +18,7 @@ const App: React.FC = () => {
   
   // Data State (Simulating DB)
   const [units, setUnits] = useState<Unit[]>(INITIAL_UNITS);
+  const [cards, setCards] = useState<Card[]>([]); // The Master Database
 
   // Unit Management Handlers
   const handleAddUnit = (name: string) => {
@@ -24,15 +27,22 @@ const App: React.FC = () => {
       name,
       lessons: []
     };
-    setUnits([...units, newUnit]);
+    setUnits(prev => [...prev, newUnit]);
   };
 
   const handleUpdateUnitName = (id: string, newName: string) => {
-    setUnits(units.map(u => u.id === id ? { ...u, name: newName } : u));
+    setUnits(prev => prev.map(u => u.id === id ? { ...u, name: newName } : u));
+  };
+
+  // Implement Delete Unit (Fixed with Functional Update)
+  const handleDeleteUnit = (id: string) => {
+    if (window.confirm("هل أنت متأكد من حذف هذه المجموعة؟ سيتم حذف جميع الدروس بداخلها.")) {
+      setUnits(prevUnits => prevUnits.filter(u => u.id !== id));
+    }
   };
 
   const handleAddLesson = (unitId: string, lessonName: string) => {
-    setUnits(units.map(u => {
+    setUnits(prev => prev.map(u => {
       if (u.id === unitId) {
         return {
           ...u,
@@ -44,7 +54,7 @@ const App: React.FC = () => {
   };
 
   const handleUpdateLessonName = (unitId: string, lessonId: string, newName: string) => {
-    setUnits(units.map(u => {
+    setUnits(prev => prev.map(u => {
         if (u.id === unitId) {
             return {
                 ...u,
@@ -53,6 +63,40 @@ const App: React.FC = () => {
         }
         return u;
     }));
+  };
+
+  // Implement Delete Lesson (Fixed with Functional Update)
+  const handleDeleteLesson = (unitId: string, lessonId: string) => {
+    if (window.confirm("هل أنت متأكد من حذف هذا الدرس؟")) {
+      setUnits(prevUnits => prevUnits.map(u => {
+        if (u.id === unitId) {
+          return {
+            ...u,
+            lessons: u.lessons.filter(l => l.id !== lessonId)
+          };
+        }
+        return u;
+      }));
+    }
+  };
+
+  // Content Processing Handler (Files)
+  const handleProcessContent = async (files: File[], unitId: string, lessonId: string) => {
+      // 1. Call OCR Engine
+      const extractedCards = await simulateFileProcessing(files, language, unitId, lessonId);
+      
+      // 2. Merge with Database
+      const updatedDatabase = mergeCards(cards, extractedCards);
+      setCards(updatedDatabase);
+      
+      return extractedCards.length;
+  };
+
+  // Manual Entry Handler
+  const handleManualAddCard = (card: Card) => {
+      // Wrap in array and reuse merge logic to ensure deduplication
+      const updatedDatabase = mergeCards(cards, [card]);
+      setCards(updatedDatabase);
   };
 
   // Navigation Handlers
@@ -95,8 +139,12 @@ const App: React.FC = () => {
             units={units}
             onAddUnit={handleAddUnit}
             onUpdateUnit={handleUpdateUnitName}
+            onDeleteUnit={handleDeleteUnit}
             onAddLesson={handleAddLesson}
             onUpdateLesson={handleUpdateLessonName}
+            onDeleteLesson={handleDeleteLesson}
+            onProcessContent={handleProcessContent}
+            onManualAdd={handleManualAddCard}
           />
         );
       case AppView.Stats:

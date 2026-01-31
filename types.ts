@@ -20,6 +20,17 @@ export enum CardClass {
   Expression = 'Expression',
 }
 
+export enum Gender {
+  Masc = 'Masc',
+  Fem = 'Fem',
+  None = 'None', // For plural nouns or words where gender isn't the focus
+}
+
+export enum VerbType {
+  Regular = 'Regular',
+  Irregular = 'Irregular',
+}
+
 export enum QuestionType {
   Meaning = 'Meaning', // Both
   Gender = 'Gender', // French Nouns
@@ -39,6 +50,35 @@ export interface Unit {
   lessons: Lesson[];
 }
 
+// --- DATABASE SCHEMA ---
+
+export interface Card {
+  id: string;
+  
+  // Core Data
+  article?: string; // e.g., "la", "un"
+  word: string; // The stripped word e.g., "table"
+  translation: string; // Arabic meaning
+  gender: Gender;
+  class: CardClass;
+
+  // Conjugation Data (For Verbs)
+  infinitive?: string;
+  conjugations?: string[]; // Array of 6: [je, tu, il/elle, nous, vous, ils/elles]
+  verbType?: VerbType;
+
+  // English Specific Data
+  synonyms?: string[];
+  antonyms?: string[];
+
+  // Metadata
+  language: Language;
+  unitId: string;
+  lessonId: string;
+  sourceFileId?: string; // To link back to the specific uploaded file
+  createdAt: number;
+}
+
 export interface CardCounts {
   [QuestionType.Meaning]: number;
   [QuestionType.Gender]?: number;
@@ -49,7 +89,7 @@ export interface CardCounts {
 
 export interface TrainingConfig {
   language: Language;
-  selectedLessonIds: string[]; // Changed from selectedUnitIds to allow granular control
+  selectedLessonIds: string[];
   selectedClasses: CardClass[];
   selectedQuestionTypes: QuestionType[];
   cardLimit: number;
